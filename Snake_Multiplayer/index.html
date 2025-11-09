@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Multijugador</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+        }
+
+        #juego {
+            border: 2px solid black;
+            width: 500px;
+            height: 500px;
+            position: relative;
+            background-color: #333;
+            margin: 20px;
+        }
+
+        .jugador {
+            width: 20px;
+            height: 20px;
+            background-color: #00ff00;
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            color: white;
+            border: 1px solid #fff;
+            box-sizing: border-box;
+        }
+
+        .fruta {
+            width: 20px;
+            height: 20px;
+            background-color: #ff0000;
+            position: absolute;
+            border-radius: 50%;
+            border: 2px solid #ffff00;
+            box-sizing: border-box;
+        }
+
+        #bloqueConectar {
+            margin: 20px;
+            padding: 10px;
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        #marcadores {
+            background-color: white;
+            padding: 10px;
+            border-radius: 5px;
+            min-width: 200px;
+            margin-top: 10px;
+        }
+
+        .marcadorJugador {
+            margin: 5px 0;
+            padding: 5px;
+            background-color: #e0e0e0;
+            border-radius: 3px;
+        }
+
+        button {
+            padding: 5px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        input {
+            padding: 5px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Snake Multijugador</h1>
+    
+    <div id="bloqueConectar">
+        <input id="textoServer" value="127.0.0.1" placeholder="IP del servidor">
+        <button id="botonConectar">Conectar</button>
+    </div>
+
+    <div id="juego">
+        <div class="jugador" id="plantilla"></div>
+        <div class="fruta" id="plantillaFruta"></div>
+    </div>
+
+    <div id="marcadores">
+        <h3>Puntuaciones:</h3>
+        <div id="listaMarcadores"></div>
+    </div>
+</body>
+<script>
+    // Plantillas
+    var jugadorBlueprint = document.getElementById("plantilla");
+    var frutaBlueprint = document.getElementById("plantillaFruta");
+    jugadorBlueprint.remove();
+    frutaBlueprint.remove();
+
+    var miConexion;
+    var miID = -1;
+    var jugadoresData = {}; // Guardar datos de todos los jugadores
+
+    document.getElementById("botonConectar").addEventListener("click", () => {
+        var direccion = document.getElementById("textoServer").value;
+        miConexion = new WebSocket("ws://" + direccion + ":8080");
+
+        miConexion.addEventListener("open", () => {
+            console.log("Conectado al servidor");
+            document.getElementById("bloqueConectar").style.display = "none";
+        });
+
+        miConexion.addEventListener("message", (m) => {
+            mensaje = JSON.parse(m.data.toString());
+
+            if(mensaje.tipo == "new") {
+                // Nuevo jugador conectado
+                if(miID == -1) { 
+                    miID = mensaje.datos.id;
+                }
+                
+                // Crear sprite del jugador
+                var nuevoJugador = jugadorBlueprint.cloneNode();
+                nuevoJugador.id = "jugador_" + mensaje.datos.id;
+                nuevoJugador.dataset.posy = mensaje.datos.posy;
+                nuevoJugador.dataset.posx = mensaje.datos.posx;
+                nuevoJugador.dataset.dir = mensaje.datos.dir;
+                nuevoJugador.style.top = mensaje.datos.posy + "px";
+                nuevoJugador.style.left = mensaje.datos.posx + "px";
+                nuevoJugador.innerHTML = mensaje.datos.puntos || 0;
+                
+                // Cambiar color si es el jugador local
+                if(mensaje.datos.id == miID) {
+                    nuevoJugador.style.backgroundColor = "#0080ff";
+                }
+                
+                document.getElementById("juego").appendChild(nuevoJugador);
+                
+                // Guardar datos del jugador
+                jugadoresData[mensaje.datos.id] = mensaje.datos;
+                actualizarMarcadores();
+                
+            } else if(mensaje.tipo == "delete") {
+                // Jugador desconectado
+                var jugadorEliminar = document.getElementById("jugador_" + mensaje.datos);
+                if(jugadorEliminar) {
+                    jugadorEliminar.remove();
+                }
+                delete jugadoresData[mensaje.datos];
+                actualizarMarcadores();
+                
+            } else if(mensaje.tipo == "mover") {
+                // Movimiento de jugador
+                var jugadorMover = document.getElementById("jugador_" + mensaje.datos.id);
+                if(jugadorMover) {
+                    jugadorMover.dataset.dir = mensaje.datos.dir;
+                    jugadorMover.dataset.posy = mensaje.datos.posy;
+                    jugadorMover.dataset.posx = mensaje.datos.posx;
+                    
+                    // Si es mi jugador, verificar colisiones con frutas
+                    if(mensaje.datos.id == miID) {
+                        verificarColisiones();
+                    }
+                }
+                
+            } else if(mensaje.tipo == "nuevaFruta") {
+                // Nueva fruta apareció
+                var nuevaFruta = frutaBlueprint.cloneNode();
+                nuevaFruta.id = "fruta_" + mensaje.datos.id;
+                nuevaFruta.dataset.posx = mensaje.datos.posx;
+                nuevaFruta.dataset.posy = mensaje.datos.posy;
+                nuevaFruta.style.left = mensaje.datos.posx + "px";
+                nuevaFruta.style.top = mensaje.datos.posy + "px";
+                document.getElementById("juego").appendChild(nuevaFruta);
+                
+            } else if(mensaje.tipo == "frutaComida") {
+                // Una fruta fue comida
+                var frutaEliminar = document.getElementById("fruta_" + mensaje.datos.idFruta);
+                if(frutaEliminar) {
+                    frutaEliminar.remove();
+                }
+                
+                // Actualizar puntos del jugador
+                var jugadorActualizar = document.getElementById("jugador_" + mensaje.datos.idJugador);
+                if(jugadorActualizar) {
+                    jugadorActualizar.innerHTML = mensaje.datos.puntosJugador;
+                }
+                
+                // Actualizar datos
+                if(jugadoresData[mensaje.datos.idJugador]) {
+                    jugadoresData[mensaje.datos.idJugador].puntos = mensaje.datos.puntosJugador;
+                }
+                actualizarMarcadores();
+            }
+        });
+
+        miConexion.addEventListener("close", () => {
+            alert("Desconectado del servidor");
+            location.reload();
+        });
+    });
+
+    // Función para verificar colisiones con frutas
+    function verificarColisiones() {
+        if(miID == -1) return;
+        
+        var yo = document.getElementById("jugador_" + miID);
+        if(!yo) return;
+        
+        var miX = parseInt(yo.dataset.posx);
+        var miY = parseInt(yo.dataset.posy);
+        
+        // Buscar todas las frutas
+        var frutas = document.getElementsByClassName("fruta");
+        for(var i = 0; i < frutas.length; i++) {
+            var fruta = frutas[i];
+            var frutaX = parseInt(fruta.dataset.posx);
+            var frutaY = parseInt(fruta.dataset.posy);
+            
+            // Verificar si hay colisión
+            if(Math.abs(miX - frutaX) < 20 && Math.abs(miY - frutaY) < 20) {
+                // Enviar mensaje de que comí la fruta
+                var idFruta = parseInt(fruta.id.replace("fruta_", ""));
+                miConexion.send(JSON.stringify({
+                    tipo: "comerFruta",
+                    datos: {
+                        idFruta: idFruta
+                    }
+                }));
+            }
+        }
+    }
+
+    // Función para actualizar marcadores
+    function actualizarMarcadores() {
+        var lista = document.getElementById("listaMarcadores");
+        lista.innerHTML = "";
+        
+        // Ordenar jugadores por puntos
+        var jugadoresOrdenados = Object.values(jugadoresData).sort((a, b) => b.puntos - a.puntos);
+        
+        jugadoresOrdenados.forEach(jugador => {
+            var marcador = document.createElement("div");
+            marcador.className = "marcadorJugador";
+            marcador.innerHTML = `Jugador ${jugador.id}: ${jugador.puntos || 0} puntos`;
+            if(jugador.id == miID) {
+                marcador.style.fontWeight = "bold";
+                marcador.style.backgroundColor = "#c0e0ff";
+            }
+            lista.appendChild(marcador);
+        });
+    }
+
+    // Control del teclado
+    document.addEventListener("keydown", (ev) => {
+        if(miID == -1 || !miConexion) return;
+        
+        var yo = document.getElementById("jugador_" + miID);
+        if(!yo) return;
+        
+        var tecla = ev.key.toLowerCase();
+        if(tecla == "arrowup") tecla = "w";
+        if(tecla == "arrowdown") tecla = "s";
+        if(tecla == "arrowleft") tecla = "a";
+        if(tecla == "arrowright") tecla = "d";
+        
+        mensaje = {
+            tipo: "mover",
+            datos: {
+                id: miID,
+                posx: yo.dataset.posx,
+                posy: yo.dataset.posy,
+                dir: tecla
+            }
+        };
+        miConexion.send(JSON.stringify(mensaje));
+    });
+
+    document.addEventListener("keyup", (ev) => {
+        if(miID == -1 || !miConexion) return;
+        
+        var yo = document.getElementById("jugador_" + miID);
+        if(!yo) return;
+        
+        mensaje = {
+            tipo: "mover",
+            datos: {
+                id: miID,
+                posx: yo.dataset.posx,
+                posy: yo.dataset.posy,
+                dir: "quieto"
+            }
+        };
+        miConexion.send(JSON.stringify(mensaje));
+    });
+
+    // Loop de movimiento
+    setInterval(() => {
+        var listaJugadores = document.getElementsByClassName("jugador");
+        
+        for(var i = 0; i < listaJugadores.length; i++) {
+            var j = listaJugadores[i];
+            var direccion = j.dataset.dir;
+            
+            if(direccion == "a") {
+                j.dataset.posx = Number(j.dataset.posx) - 20;
+            } else if(direccion == "d") {
+                j.dataset.posx = Number(j.dataset.posx) + 20;
+            } else if(direccion == "w") {
+                j.dataset.posy = Number(j.dataset.posy) - 20;
+            } else if(direccion == "s") {
+                j.dataset.posy = Number(j.dataset.posy) + 20;
+            }
+
+            // Límites del mapa
+            if(j.dataset.posx < 0) j.dataset.posx = 0;
+            if(j.dataset.posy < 0) j.dataset.posy = 0;
+            if(j.dataset.posy > 480) j.dataset.posy = 480;
+            if(j.dataset.posx > 480) j.dataset.posx = 480;
+
+            j.style.top = j.dataset.posy + "px";
+            j.style.left = j.dataset.posx + "px";
+            
+            // Si es el jugador local, enviar la nueva posición
+            var jugadorId = parseInt(j.id.replace("jugador_", ""));
+            if(jugadorId == miID && miConexion && direccion != "quieto") {
+                miConexion.send(JSON.stringify({
+                    tipo: "mover",
+                    datos: {
+                        id: miID,
+                        posx: j.dataset.posx,
+                        posy: j.dataset.posy,
+                        dir: direccion
+                    }
+                }));
+            }
+        }
+    }, 100);
+</script>
+</html>
