@@ -31,7 +31,7 @@ for(let i = 0; i < CantidadDeFrutas; i++) {
 server.addListener("connection", (conexionJugador) => {
     console.log("Alguien se ha conectado");
 
-    // Crear nuevo jugador
+    // nuevo jugador
     datosIniciales = {
         id: siguienteId,
         posx: Math.floor(Math.random() * 24) * 20, // Posiciones en grid
@@ -69,14 +69,14 @@ server.addListener("connection", (conexionJugador) => {
         }));
     });
 
-    // Manejo de desconexión
+    // Manejo de desconexion  
     conexionJugador.addEventListener("close", () => {
         console.log("Alguien se ha desconectado");
         
         var datosDeQuienSeDesconecta = jugadores.get(conexionJugador);
         jugadores.delete(conexionJugador);
 
-        // Avisar a todos que alguien se desconectó
+        // Avisar a todos que alguien se desconecto
         jugadores.forEach((d, c) => {
             c.send(JSON.stringify({
                 tipo: "delete",
@@ -99,7 +99,7 @@ server.addListener("connection", (conexionJugador) => {
             
             jugadores.set(conexionJugador, datosDelJugador);
 
-            // Informar a todos los jugadores del movimiento
+            // Informar a todos los jugadores de la actualizacion del movimiento
             jugadores.forEach((d, c) => {
                 c.send(JSON.stringify({
                     tipo: "mover",

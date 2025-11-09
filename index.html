@@ -158,7 +158,7 @@
                 actualizarMarcadores();
                 
             } else if(mensaje.tipo == "delete") {
-                // Jugador desconectado
+                // Si un jugador se desconecta lo eliminamos
                 var jugadorEliminar = document.getElementById("jugador_" + mensaje.datos);
                 if(jugadorEliminar) {
                     jugadorEliminar.remove();
@@ -181,7 +181,7 @@
                 }
                 
             } else if(mensaje.tipo == "nuevaFruta") {
-                // Nueva fruta apareció
+                // Nueva fruta aparecio
                 var nuevaFruta = frutaBlueprint.cloneNode();
                 nuevaFruta.id = "fruta_" + mensaje.datos.id;
                 nuevaFruta.dataset.posx = mensaje.datos.posx;
@@ -191,7 +191,7 @@
                 document.getElementById("juego").appendChild(nuevaFruta);
                 
             } else if(mensaje.tipo == "frutaComida") {
-                // Una fruta fue comida
+                // Una fruta fuee comida
                 var frutaEliminar = document.getElementById("fruta_" + mensaje.datos.idFruta);
                 if(frutaEliminar) {
                     frutaEliminar.remove();
@@ -227,16 +227,16 @@
         var miX = parseInt(yo.dataset.posx);
         var miY = parseInt(yo.dataset.posy);
         
-        // Buscar todas las frutas
+        // buscar todos lo elementos con id "fruta"
         var frutas = document.getElementsByClassName("fruta");
         for(var i = 0; i < frutas.length; i++) {
             var fruta = frutas[i];
             var frutaX = parseInt(fruta.dataset.posx);
             var frutaY = parseInt(fruta.dataset.posy);
             
-            // Verificar si hay colisión
+            // Verificar si hay colisión con la fruta
             if(Math.abs(miX - frutaX) < 20 && Math.abs(miY - frutaY) < 20) {
-                // Enviar mensaje de que comí la fruta
+                // Si comemos la fruta enviamos mensaje
                 var idFruta = parseInt(fruta.id.replace("fruta_", ""));
                 miConexion.send(JSON.stringify({
                     tipo: "comerFruta",
@@ -248,7 +248,7 @@
         }
     }
 
-    // Función para actualizar marcadores
+   
     function actualizarMarcadores() {
         var lista = document.getElementById("listaMarcadores");
         lista.innerHTML = "";
