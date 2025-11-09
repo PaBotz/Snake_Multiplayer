@@ -93,7 +93,7 @@
     <h1>Snake Multijugador</h1>
     
     <div id="bloqueConectar">
-        <input id="textoServer" value="127.0.0.1" placeholder="IP del servidor">
+        <input id="textoServer" value="snake-multiplayer-51xp.onrender.com" placeholder="IP del servidor">
         <button id="botonConectar">Conectar</button>
     </div>
 
@@ -120,7 +120,7 @@
 
     document.getElementById("botonConectar").addEventListener("click", () => {
         var direccion = document.getElementById("textoServer").value;
-        miConexion = new WebSocket("ws://" + direccion + ":8080");
+        miConexion = new WebSocket("wss://" + direccion);
 
         miConexion.addEventListener("open", () => {
             console.log("Conectado al servidor");
